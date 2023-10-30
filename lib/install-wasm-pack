@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+
+GITHUB_ORG="${GITHUB_ORG:-rustwasm}"
+GITHUB_REPO="${GITHUB_REPO:-wasm-pack}"
+
+# we use a file to keep track of the last time we checked for the latest version
+WASM_PACK_CACHE_FILE="${WASM_PACK_CACHE_FILE:-$HOME/.rustup/.wasm-pack-version}"
+# by default, we wait 6 hours between checks
+WASM_PACK_CACHE_SECS="${WASM_PACK_CACHE_SECS:-$(( 60 * 60 * 6 ))}"
+# set this to true to purge the cache
+WASM_PACK_CACHE_PURGE="${WASM_PACK_CACHE_PURGE:-false}"
+# set this to where you want wasm-pack installed
+WASM_PACK_EXEC="${WASM_PACK_EXEC:-$HOME/.cargo/bin/wasm-pack}"
+
+# script which will take a JSON dict as sys.argv[1] and extract the "tag_name" property
+PYTHON_GET_TAG_SCRIPT='
+# we need to decode json and access sys.argv
+import json, sys
+
+# load the latest tag name from the response
+print(json.loads(sys.argv[1])["tag_name"])
+'
+
+function .log() {
+  echo '[wasm-pack::installer]' "$@" >&2
+}
+
+function .should_check_latest() {
+  if [ -f "$WASM_PACK_CACHE_FILE" ]; then
+    # evaluate the amount of time since we last checked for the latest version
+    local seconds_since_check
+    seconds_since_check=$(( $(date +%s) - $(date +%s -r "$WASM_PACK_CACHE_FILE") ))
+
+    .log "cache exists, seconds since last check: $seconds_since_check"
+
+    # if the amount of time is greater than or equal to WASM_PACK_CACHE_SECS, we need to check again
+    if [ "$seconds_since_check" -ge "$WASM_PACK_CACHE_SECS" ]; then
+      .log "cache is out of date"
+      true
+    else
+      .log "cache is not out of date"
+      false
+    fi
+  else
+    .log "no cache exists"
+    true
+  fi
+}
+
+function .get_latest_version() {
+  local api_url
+  api_url="https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/releases/latest"
+
+  if .should_check_latest ; then
+    local data
+    data="$(curl -fsSL "${api_url}")"
+
+    # using python, extract the tag from the response
+    local tag
+    tag="$(echo "$PYTHON_GET_TAG_SCRIPT" | python - "${data}")"
+
+    .log "found latest version: ${tag}"
+    # write the tag to the cache file and echo it simultaneously
+    echo "${tag}" | tee "$WASM_PACK_CACHE_FILE"
+  else
+    local tag
+    tag="$(cat "$WASM_PACK_CACHE_FILE")"
+
+    .log "using cached latest version: ${tag}"
+    echo "${tag}"
+  fi
+}
+
+function .is_installed() {
+  test -e "$WASM_PACK_EXEC"
+}
+
+function .get_installed_version() {
+  if .is_installed ; then
+    "$WASM_PACK_EXEC" --version | awk '{print "v"$2;}'
+  else
+    false
+  fi
+}
+
+function .should_replace_bin() {
+  local version
+  version="${1}" && shift
+
+  if .is_installed ; then
+    local installed_version
+    installed_version="$(.get_installed_version)"
+
+    if [[ "${version}" == "${installed_version}" ]]; then
+      false
+    else
+      true
+    fi
+  else
+    true
+  fi
+}
+
+function .get_os() {
+  uname | tr '[:upper:]' '[:lower:]'
+}
+
+function .get_arch() {
+  uname -p
+}
+
+function .get_platform_triple() {
+  local os
+  os="$(.get_os)"
+
+  local arch
+  arch="$(.get_arch)"
+
+  if [[ "$os" == "linux" ]]; then
+    echo "${arch}-unknown-${os}-musl"
+  else
+    .log "unsupported os: ${os}"
+    false
+  fi
+}
+
+function .install_wasm_pack() {
+  local version
+  version="${1}"
+
+  local target_triple
+  target_triple="$(.get_platform_triple)"
+
+  local artifact
+  artifact="wasm-pack-${version}-${target_triple}"
+
+  local url
+  url="https://github.com/${GITHUB_ORG}/${GITHUB_REPO}/releases/download/${version}/${artifact}.tar.gz"
+
+  local file_path
+  file_path="${artifact}/wasm-pack"
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+
+  .log "fetching wasm-pack from url: ${url}"
+
+  if ( cd "$tmpdir" && curl -fsSL "${url}" | tar xzf - --strip-components=1 "${file_path}" ) ; then
+    .log "download complete, installing binary to ${WASM_PACK_EXEC}..."
+    install -m 0755 "$tmpdir/wasm-pack" "$WASM_PACK_EXEC"
+    rm -r "${tmpdir}"
+  else
+    .log "download failed"
+    rm -r "${tmpdir}"
+    false
+  fi
+}
+
+function .main() {
+  local version
+  version="${1:-latest}"
+
+  # resolve version from latest, amend version if it doesn't have the prefix
+  if [[ "${version}" == "latest" ]]; then
+    .log "resolving latest version"
+    version="$(.get_latest_version)"
+  else
+    if ! echo "${version}" | grep -q '^v' ; then
+      .log "inserting v prefix"
+      version="v${version}"
+    else
+      version="${version}"
+    fi
+  fi
+
+  .log "desired version: ${version}"
+
+  if .should_replace_bin "$version" ; then
+    if [ -e "$WASM_PACK_EXEC" ]; then
+      .log "upgrading wasm-pack..."
+    else
+      .log "installing wasm-pack..."
+    fi
+
+    .install_wasm_pack "$version"
+  else
+    .log "wasm-pack is up-to-date, nothing to do"
+  fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  set -euo pipefail
+  .main "$@"
+fi
