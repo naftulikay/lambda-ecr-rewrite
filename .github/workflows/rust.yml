@@ -128,8 +128,8 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=ref,event=pr
-            type=sha
-            type=sha,format=long
+            type=sha,prefix=
+            type=sha,format=long,prefix=
             type=semver,pattern={{major}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{version}}
