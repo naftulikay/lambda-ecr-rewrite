@@ -1,4 +1,27 @@
 # lambda-ecr-rewrite [![Build Status][build.svg]][build]
 
+A simple Lambda function in Rust, available as a Docker image, for rewriting all incoming requests to an ECR registry.
+This makes it easy to create an "alias" for ECR such as `docker.mycompany.com` as opposed to the awful default name.
+
+ - 🤢 `123456789012.dkr.ecr.us-east-1.amazonaws.com`
+ - 😎 `docker.mycompany.com`
+
+## Configuration
+
+Two configuration parameters are available as environment variables:
+
+ 1. `ECR_REGISTRY_HOST`: set this to the FQDN of your ECR registry, such as `123456789012.dkr.ecr.us-east-1.amazonaws.com`
+ 2. `CACHE_MAX_AGE`: set this to a positive integer in seconds to be used with `Cache-Control`'s `max-age` parameter for
+    HTTP responses.
+
+If you receive an HTTP 500, it is most likely that you did not configure `ECR_REGISTRY_HOST`.
+
+## License
+
+Licensed at your discretion under either:
+
+ - [Apache Software License, Version 2.0](./LICENSE-APACHE)
+ - [MIT License](./LICENSE-MIT)
+
  [build]:     https://github.com/naftulikay/lambda-ecr-rewrite/actions/workflows/rust.yml
  [build.svg]: https://github.com/naftulikay/lambda-ecr-rewrite/actions/workflows/rust.yml/badge.svg
