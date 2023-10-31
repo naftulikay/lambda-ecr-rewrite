@@ -116,12 +116,17 @@ jobs:
       - id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: naftulikay/lambda-ecr-rewrite-${{ matrix.arch }}
+          images: ghcr.io/naftulikay/lambda-ecr-rewrite-${{ matrix.arch }}
       # cache the target directory with the build cache mount
       - uses: reproducible-containers/buildkit-cache-dance@v2.1.3
         with:
           cache-source: target
           cache-target: /usr/src/app/target
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.action }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       # build the image for the given arch
       - uses: docker/build-push-action@v5
         with:
@@ -131,7 +136,7 @@ jobs:
             ARCH=${{ matrix.arch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          push: false
+          push: true
           load: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
