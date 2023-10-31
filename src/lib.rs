@@ -61,7 +61,7 @@ pub fn rewrite(req: ApiGatewayProxyRequest, _ctx: Context) -> ApiGatewayProxyRes
 }
 
 /// Only emit logs after a given interval of time, preventing masses of redundant logs.
-pub fn log_infrequently<S: AsRef<str>>(message: S) {
+pub fn log_infrequently<S: AsRef<str>>(message: S) -> LogStatus {
     let now = Instant::now();
 
     // get a read-only guard
@@ -75,7 +75,18 @@ pub fn log_infrequently<S: AsRef<str>>(message: S) {
 
         let mut guard = LAST_LOG_TIME.write();
         *guard = Some(now);
+
+        LogStatus::Emitted
+    } else {
+        LogStatus::Ignored
     }
+}
+
+/// Simple enum representing whether a log message was emitted or ignored.
+#[derive(Debug, Eq, PartialEq)]
+pub enum LogStatus {
+    Emitted,
+    Ignored,
 }
 
 /// Fetch (and cache) the ECR registry host from the [ECR_REGISTRY_ENV_VAR] environment variable.

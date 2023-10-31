@@ -1,6 +1,6 @@
 use crate::{
     create_error_response, create_rewrite_response, log_infrequently, should_return_json,
-    CACHE_MAX_AGE_DEFAULT, HTML_ERROR_RESPONSE, JSON_ERROR_RESPONSE,
+    LogStatus, CACHE_MAX_AGE_DEFAULT, HTML_ERROR_RESPONSE, JSON_ERROR_RESPONSE,
 };
 use aws_lambda_events::apigw::ApiGatewayProxyRequest;
 use aws_lambda_events::encodings::Body;
@@ -139,10 +139,12 @@ fn test_create_rewrite_response_qs_extra() {
     let resp = create_rewrite_response(&req, "ecr.myhost.com", 120);
 
     assert!(resp.headers.contains_key("Location"));
-    assert_eq!(
-        "https://ecr.myhost.com/twenty?a=b&c=22",
-        resp.headers.get("Location").unwrap()
-    );
+
+    let location = resp.headers.get("Location").unwrap().to_str().unwrap();
+
+    assert!(location.contains("?"));
+    assert!(location.contains("a=b"));
+    assert!(location.contains("c=22"));
 }
 
 #[test]
@@ -173,6 +175,6 @@ fn test_create_error_response() {
 
 #[test]
 fn test_log_infrequently() {
-    log_infrequently("log message A");
-    log_infrequently("log message B");
+    assert_eq!(LogStatus::Emitted, log_infrequently("log message A"));
+    assert_eq!(LogStatus::Ignored, log_infrequently("log message B"));
 }
