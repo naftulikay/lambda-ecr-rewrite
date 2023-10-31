@@ -114,7 +114,7 @@ jobs:
       - uses: docker/setup-qemu-action@v3
       # establish image name/labels/tags
       - id: metadata
-        uses: docker/metadata@v5
+        uses: docker/metadata-action@v5
         with:
           images: naftulikay/lambda-ecr-rewrite-${{ matrix.arch }}
       # cache the target directory with the build cache mount
