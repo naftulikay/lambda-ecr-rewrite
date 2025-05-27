@@ -1,7 +1,7 @@
 [package]
 name = "lambda-ecr-rewrite"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [[bin]]
 path = "src/bin/lambda.rs"
@@ -10,12 +10,12 @@ name = "lambda"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-aws_lambda_events = "0.11"
-lambda_runtime = "0.8"
-tokio = { version = "1", features = ["full"] }
+aws_lambda_events = "0.16"
+lambda_runtime = "0.14"
 parking_lot = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
 
 [dev-dependencies]
 html_parser = "0.7"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
