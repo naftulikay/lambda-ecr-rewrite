@@ -26,6 +26,7 @@ jobs:
           key: ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}-build-${{ hashFiles('**/Cargo.toml') }}
           path: |
             ~/.cargo/bin/
+            ~/.cargo/binstall/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
@@ -52,6 +53,7 @@ jobs:
           key: ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}-test-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
           path: |
             ~/.cargo/bin/
+            ~/.cargo/binstall/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
@@ -78,6 +80,7 @@ jobs:
           key: ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}-audit-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
           path: |
             ~/.cargo/bin/
+            ~/.cargo/binstall/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
