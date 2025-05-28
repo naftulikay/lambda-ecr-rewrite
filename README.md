@@ -13,6 +13,8 @@ Two configuration parameters are available as environment variables:
  1. `ECR_REGISTRY_HOST`: set this to the FQDN of your ECR registry, such as `123456789012.dkr.ecr.us-east-1.amazonaws.com`
  2. `CACHE_MAX_AGE`: set this to a positive integer in seconds to be used with `Cache-Control`'s `max-age` parameter for
     HTTP responses.
+ 3. `DEBUG`: set this to any of `y | yes | true` to enable debug logging of request and response payloads to standard
+    error.
 
 If you receive an HTTP 500, it is most likely that you did not configure `ECR_REGISTRY_HOST`.
 
