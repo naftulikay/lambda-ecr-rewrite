@@ -76,6 +76,20 @@ impl ApiGatewayResponseType {
             Self::V2(resp) => resp.status_code = code,
         }
     }
+
+    pub fn cookies(&self) -> Option<&Vec<String>> {
+        match self {
+            Self::V1(_) => None,
+            Self::V2(resp) => Some(&resp.cookies),
+        }
+    }
+
+    pub fn cookies_mut(&mut self) -> Option<&mut Vec<String>> {
+        match self {
+            Self::V1(_) => None,
+            Self::V2(resp) => Some(&mut resp.cookies),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Builder)]
@@ -87,6 +101,8 @@ pub struct ApiGatewayGenericResponse<'a> {
     #[builder(default)]
     pub(crate) headers: HeaderMap,
     pub(crate) status_code: i64,
+    #[builder(into)]
+    pub(crate) cookies: Option<Vec<String>>,
 }
 
 impl From<ApiGatewayGenericResponse<'_>> for ApiGatewayResponseType {
@@ -105,7 +121,10 @@ impl From<ApiGatewayGenericResponse<'_>> for ApiGatewayResponseType {
                 multi_value_headers: value.headers.clone(),
                 body: value.body,
                 is_base64_encoded: value.is_base64_encoded,
-                cookies: Default::default(),
+                // priority: use cookies specified in the builder, otherwise copy the request cookies
+                cookies: value
+                    .cookies
+                    .unwrap_or(value.req.cookies().cloned().unwrap_or_default()),
             }),
         }
     }

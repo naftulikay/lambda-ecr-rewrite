@@ -53,4 +53,11 @@ impl ApiGatewayRequestType {
             Self::V2(req) => &mut req.headers,
         }
     }
+
+    pub fn cookies(&self) -> Option<&Vec<String>> {
+        match self {
+            Self::V1(_) => None,
+            Self::V2(req) => req.cookies.as_ref(),
+        }
+    }
 }

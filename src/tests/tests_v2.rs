@@ -1,12 +1,61 @@
 use crate::requests::ApiGatewayRequestType;
+use crate::responses::{ApiGatewayGenericResponse, ApiGatewayResponseType};
 use crate::{
     CACHE_MAX_AGE_DEFAULT, HTML_ERROR_RESPONSE, JSON_ERROR_RESPONSE, create_error_response,
     create_rewrite_response, should_return_json,
 };
+use aws_lambda_events::apigw::ApiGatewayV2httpRequest;
 use aws_lambda_events::encodings::Body;
 use aws_lambda_events::http::HeaderValue;
 use aws_lambda_events::query_map::QueryMap;
 use std::collections::HashMap;
+
+#[test]
+fn test_v2_copy_req_cookies() {
+    let req = ApiGatewayRequestType::V2(ApiGatewayV2httpRequest {
+        cookies: Some(vec!["TEST-COOKIE".to_string()]),
+        ..Default::default()
+    });
+
+    let generic_response = ApiGatewayGenericResponse::builder()
+        .req(&req)
+        .status_code(200)
+        .build();
+
+    let resp: ApiGatewayResponseType = generic_response.into();
+
+    assert_eq!(
+        Some(&"TEST-COOKIE".to_string()),
+        resp.cookies().unwrap().first(),
+        "should copy cookies from the request"
+    );
+}
+
+#[test]
+fn test_v2_override_cookies() {
+    let req = ApiGatewayRequestType::V2(ApiGatewayV2httpRequest {
+        cookies: Some(vec!["OVERRIDDEN-COOKIE".to_string()]),
+        ..Default::default()
+    });
+
+    let generic_response = ApiGatewayGenericResponse::builder()
+        .req(&req)
+        .status_code(200)
+        .cookies(vec!["TEST-COOKIE".to_string()])
+        .build();
+
+    let resp: ApiGatewayResponseType = generic_response.into();
+
+    // should not contain the cookies from the original request
+    assert!(
+        !resp
+            .cookies()
+            .unwrap()
+            .contains(&"OVERRIDDEN-COOKIE".to_string())
+    );
+    // should contain the cookies from the override
+    assert!(resp.cookies().unwrap().contains(&"TEST-COOKIE".to_string()));
+}
 
 #[test]
 fn test_v2_should_return_json() {
