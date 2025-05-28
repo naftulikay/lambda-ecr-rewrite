@@ -1,100 +1,141 @@
----
-on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
-  pull_request:
-    branches:
-      - main
+name: rust
 
-  workflow_dispatch: {}
+on:
+  workflow_call:
+    inputs:
+      cache_version:
+        type: string
+        default: v1
+      cargo_audit_ignores:
+        type: string
+        default: ''
+        description: |-
+          Line-delimited string list of Rust CVEs to ignore.
+      cargo_audit_version:
+        type: string
+        default: '0.21.2'
 
 env:
-  CACHE_VERSION: v1
-  RUSTC_WRAPPER: "/home/runner/.cargo/bin/sccache"
-  SCCACHE_VERSION: 0.5.4
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
-          key: ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}-build-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ inputs.cache_version }}-rust-${{ github.job }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}-${{ github.sha }}
           path: |
+            ~/.cache/sccache
+            ~/.cargo/.crates*
             ~/.cargo/bin/
             ~/.cargo/binstall/
-            ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
+            ~/.cargo/registry/index/
             ~/.cargo/git/db/
-            ~/.cache/sccache/
-            ~/.rustup/
             target/
           restore-keys: |
-            ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}-build-
-            ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}
-      - run: lib/install-sccache
-      - run: lib/install-wasm-pack
+            ${{ runner.os }}-${{ github.workflow }}-${{ inputs.cache_version }}-rust-${{ github.job }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}-
+            ${{ runner.os }}-${{ github.workflow }}-${{ inputs.cache_version }}-rust-${{ github.job }}-
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          # also include wasm
-          targets: wasm32-unknown-unknown
-      - run: cargo build --release --all
+      # install sccache
+      - uses: mozilla-actions/sccache-action@v0.0.8
+      # install mold
+      - uses: rui314/setup-mold@v1
+      # easily install any rust bins without building them
+      - uses: cargo-bins/cargo-binstall@main
+      # install cargo-auditable to produce the binary
+      - run: cargo binstall -y cargo-auditable
+      # build
+      - run: cargo auditable build --bins --workspace --release
 
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
-          key: ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}-test-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ inputs.cache_version }}-rust-${{ github.job }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}-${{ github.sha }}
           path: |
+            ~/.cache/sccache
+            ~/.cargo/.crates*
             ~/.cargo/bin/
             ~/.cargo/binstall/
-            ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
+            ~/.cargo/registry/index/
             ~/.cargo/git/db/
-            ~/.cache/sccache/
-            ~/.rustup/
             target/
           restore-keys: |
-            ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}-test-
-            ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}
-      - run: lib/install-sccache
-      - run: lib/install-wasm-pack
+            ${{ runner.os }}-${{ github.workflow }}-${{ inputs.cache_version }}-rust-${{ github.job }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}-
+            ${{ runner.os }}-${{ github.workflow }}-${{ inputs.cache_version }}-rust-${{ github.job }}-
+      - uses: dtolnay/rust-toolchain@stable
+      # install sccache
+      - uses: mozilla-actions/sccache-action@v0.0.8
+      # install mold
+      - uses: rui314/setup-mold@v1
+      # easily install any rust bins without building them
+      - uses: cargo-bins/cargo-binstall@main
+      # test
+      - run: cargo test --workspace
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ inputs.cache_version }}-rust-${{ github.job }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}-${{ github.sha }}
+          path: |
+            ~/.cache/sccache
+            ~/.cargo/.crates*
+            ~/.cargo/bin/
+            ~/.cargo/binstall/
+            ~/.cargo/registry/cache/
+            ~/.cargo/registry/index/
+            ~/.cargo/git/db/
+            target/
+          restore-keys: |
+            ${{ runner.os }}-${{ github.workflow }}-${{ inputs.cache_version }}-rust-${{ github.job }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}-
+            ${{ runner.os }}-${{ github.workflow }}-${{ inputs.cache_version }}-rust-${{ github.job }}-
       - uses: dtolnay/rust-toolchain@stable
         with:
-          # also include wasm
-          targets: wasm32-unknown-unknown
-      - run: cargo test --all-features
+          components: clippy, rustfmt
+          targets: x86_64-unknown-linux-gnu,wasm32-unknown-unknown
+      # install sccache
+      - uses: mozilla-actions/sccache-action@v0.0.8
+      # install mold
+      - uses: rui314/setup-mold@v1
+      # easily install any rust bins without building them
+      - uses: cargo-bins/cargo-binstall@main
+      # cargo check
+      - run: cargo fmt --check --all
+      - run: cargo check --workspace
+      - run: cargo clippy --workspace
 
   audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v3
-        with:
-          key: ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}-audit-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/binstall/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            ~/.cache/sccache/
-            ~/.rustup/
-            target/
-          restore-keys: |
-            ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}-audit-
-            ${{ runner.os }}-rust-${{ env.CACHE_VERSION }}
-      - run: lib/install-sccache
-      # NOTE don't need any other targets, just need to audit the source code
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo install --force cargo-audit
-      - run: cargo audit
+      # install sccache (might not be required)
+      - uses: mozilla-actions/sccache-action@v0.0.8
+      # install mold
+      - uses: rui314/setup-mold@v1
+      # easily install any rust bins without building them
+      - uses: cargo-bins/cargo-binstall@main
+      # install cargo-audit
+      - run: cargo binstall -y cargo-audit@${{ inputs.cargo_audit_version }}
+      # run the audit
+      - name: cargo audit
+        run: |
+          # include ignore flags for each item mentioned in the env var
+          cargo audit $(echo "${{ inputs.cargo_audit_ignores }}" | while read ignore ; do
+            if [ ! -z "${ignore}" ]; then
+              echo "--ignore ${ignore}"
+            fi
+          done)
 
   docker:
     runs-on: ubuntu-latest
@@ -102,6 +143,7 @@ jobs:
       - build
       - test
       - audit
+      - format
     permissions:
       contents: read
       packages: write
