@@ -112,7 +112,7 @@ pub fn rewrite(req: serde_json::Value, _ctx: Context) -> ApiGatewayResponseType 
     debug_log(|| {
         format!(
             "Response Payload: {}",
-            serde_json::to_string(&req_backup).unwrap_or_else(|e| { format!("(error: {e:?})") })
+            serde_json::to_string(&resp).unwrap_or_else(|e| { format!("(error: {e:?})") })
         )
     });
 
