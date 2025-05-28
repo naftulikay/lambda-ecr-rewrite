@@ -12,12 +12,21 @@ use aws_lambda_events::http::HeaderValue;
 use parking_lot::RwLock;
 use requests::ApiGatewayRequestType;
 use responses::{ApiGatewayGenericResponse, ApiGatewayResponseType};
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 use std::time::{Duration, Instant};
 
 static REGISTRY_URL: OnceLock<Option<String>> = OnceLock::new();
 
 static CACHE_MAX_AGE: OnceLock<usize> = OnceLock::new();
+
+/// If the `DEBUG` environment variable is set to `y | yes | true`, then we enable debug logging.
+static IS_DEBUG: LazyLock<bool> = LazyLock::new(|| {
+    if let Ok(value) = std::env::var("DEBUG") {
+        value.trim().starts_with("y") || value.trim() == "true"
+    } else {
+        false
+    }
+});
 
 /// The name of the environment variable containing the ECR registry host FQDN.
 pub const ECR_REGISTRY_ENV_VAR: &str = "ECR_REGISTRY_HOST";
@@ -56,6 +65,14 @@ static JSON_ERROR_RESPONSE: &str = r#"{
 /// Take an API Gateway proxy request and rewrite it into an API Gateway proxy response containing
 /// the redirect or an error message if no host is defined.
 pub fn rewrite(req: serde_json::Value, _ctx: Context) -> ApiGatewayResponseType {
+    // dump the event if logging is enabled
+    debug_log(|| {
+        format!(
+            "Event Payload: {}",
+            serde_json::to_string_pretty(&req).unwrap_or_else(|e| { format!("(error: {e:?})") })
+        )
+    });
+
     let req_backup = req.clone();
 
     // try to get the request as either v1 or v2 of api gateway
@@ -82,7 +99,7 @@ pub fn rewrite(req: serde_json::Value, _ctx: Context) -> ApiGatewayResponseType 
         }
     };
 
-    if let Some(hostname) = ecr_registry_url() {
+    let resp = if let Some(hostname) = ecr_registry_url() {
         create_rewrite_response(&req, hostname, cache_max_age())
     } else {
         eprintln!(
@@ -90,6 +107,23 @@ pub fn rewrite(req: serde_json::Value, _ctx: Context) -> ApiGatewayResponseType 
             ECR_REGISTRY_ENV_VAR
         );
         create_error_response(&req)
+    };
+
+    debug_log(|| {
+        format!(
+            "Response Payload: {}",
+            serde_json::to_string_pretty(&req_backup)
+                .unwrap_or_else(|e| { format!("(error: {e:?})") })
+        )
+    });
+
+    resp
+}
+
+/// Emit a debug log only if debug logging is enabled.
+pub fn debug_log<S: AsRef<str>>(f: impl FnOnce() -> S) {
+    if *IS_DEBUG {
+        eprintln!("DEBUG: {}", f().as_ref());
     }
 }
 

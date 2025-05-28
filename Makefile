@@ -14,7 +14,7 @@ pre-commit:
 	cargo clippy --workspace
 
 watch:
-	@ECR_REGISTRY_HOST=1234567890.dkr.ecr.us-east-1.amazonaws.com CACHE_MAX_AGE=60 cargo lambda watch
+	@ECR_REGISTRY_HOST=1234567890.dkr.ecr.us-east-1.amazonaws.com CACHE_MAX_AGE=60 DEBUG=y cargo lambda watch
 
 invoke-v1:
 	cargo lambda invoke --data-example apigw-request
