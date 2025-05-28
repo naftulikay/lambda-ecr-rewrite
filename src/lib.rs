@@ -1,17 +1,17 @@
+pub mod requests;
+pub mod responses;
 #[cfg(test)]
 mod tests;
 
-use aws_lambda_events::apigw::{
-    ApiGatewayProxyRequest, ApiGatewayProxyResponse, ApiGatewayV2httpRequest,
-};
+use aws_lambda_events::apigw::ApiGatewayProxyResponse;
 use lambda_runtime::Context;
 use std::env;
 
 use aws_lambda_events::encodings::Body;
-use aws_lambda_events::http::{HeaderMap, HeaderValue};
-use aws_lambda_events::query_map::QueryMap;
+use aws_lambda_events::http::HeaderValue;
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
+use requests::ApiGatewayRequestType;
+use responses::{ApiGatewayGenericResponse, ApiGatewayResponseType};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
@@ -53,64 +53,13 @@ static JSON_ERROR_RESPONSE: &str = r#"{
   "errors": ["Destination host name not set."]
 }"#;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ApiGatewayProxyEventType {
-    V1(ApiGatewayProxyRequest),
-    V2(ApiGatewayV2httpRequest),
-}
-
-impl ApiGatewayProxyEventType {
-    pub fn path(&self) -> Option<&String> {
-        match &self {
-            Self::V1(req) => req.path.as_ref(),
-            Self::V2(req) => req.raw_path.as_ref(),
-        }
-    }
-
-    pub fn set_path(&mut self, path: impl Into<String>) {
-        match self {
-            Self::V1(req) => req.path = Some(path.into()),
-            Self::V2(req) => req.raw_path = Some(path.into()),
-        }
-    }
-
-    pub fn query(&self) -> &QueryMap {
-        match &self {
-            Self::V1(req) => &req.query_string_parameters,
-            Self::V2(req) => &req.query_string_parameters,
-        }
-    }
-
-    pub fn query_mut(&mut self) -> &mut QueryMap {
-        match self {
-            Self::V1(req) => &mut req.query_string_parameters,
-            Self::V2(req) => &mut req.query_string_parameters,
-        }
-    }
-
-    pub fn headers(&self) -> &HeaderMap {
-        match &self {
-            Self::V1(req) => &req.multi_value_headers,
-            Self::V2(req) => &req.headers,
-        }
-    }
-
-    pub fn headers_mut(&mut self) -> &mut HeaderMap {
-        match self {
-            Self::V1(req) => &mut req.multi_value_headers,
-            Self::V2(req) => &mut req.headers,
-        }
-    }
-}
-
 /// Take an API Gateway proxy request and rewrite it into an API Gateway proxy response containing
 /// the redirect or an error message if no host is defined.
-pub fn rewrite(req: serde_json::Value, _ctx: Context) -> ApiGatewayProxyResponse {
+pub fn rewrite(req: serde_json::Value, _ctx: Context) -> ApiGatewayResponseType {
     let req_backup = req.clone();
 
     // try to get the request as either v1 or v2 of api gateway
-    let req = match serde_json::from_value::<ApiGatewayProxyEventType>(req) {
+    let req = match serde_json::from_value::<ApiGatewayRequestType>(req) {
         Ok(req) => req,
         Err(e) => {
             eprintln!(
@@ -121,13 +70,15 @@ pub fn rewrite(req: serde_json::Value, _ctx: Context) -> ApiGatewayProxyResponse
                 serde_json::to_string_pretty(&req_backup)
                     .unwrap_or_else(|e| format!("(error: {e:?})"))
             );
-            return ApiGatewayProxyResponse {
+
+            // here we cannot determine what kind of response to issue so we return a v1
+            return ApiGatewayResponseType::V1(ApiGatewayProxyResponse {
                 status_code: 500,
                 headers: Default::default(),
                 multi_value_headers: Default::default(),
                 body: Some("Invalid event received".into()),
                 is_base64_encoded: false,
-            };
+            });
         }
     };
 
@@ -190,7 +141,7 @@ pub fn cache_max_age() -> usize {
 }
 
 /// Determines whether to serve a JSON response for a given request.
-pub fn should_return_json(req: &ApiGatewayProxyEventType) -> bool {
+pub fn should_return_json(req: &ApiGatewayRequestType) -> bool {
     for header_name in ["Accept", "Content-Type"] {
         if let Some(value) = req.headers().get(header_name) {
             // if html is NOT in the content type, return json
@@ -205,11 +156,11 @@ pub fn should_return_json(req: &ApiGatewayProxyEventType) -> bool {
 
 /// Creates a 500 error response in either JSON or HTML for the circumstance in which we lack the
 /// [ECR_REGISTRY_ENV_VAR] fqdn of the ECR registry.
-pub fn create_error_response(req: &ApiGatewayProxyEventType) -> ApiGatewayProxyResponse {
-    let mut resp = ApiGatewayProxyResponse {
-        status_code: 500,
-        ..Default::default()
-    };
+pub fn create_error_response(req: &ApiGatewayRequestType) -> ApiGatewayResponseType {
+    let mut resp = ApiGatewayGenericResponse::builder()
+        .req(req)
+        .status_code(500)
+        .build();
 
     if should_return_json(req) {
         resp.headers
@@ -223,16 +174,19 @@ pub fn create_error_response(req: &ApiGatewayProxyEventType) -> ApiGatewayProxyR
         resp.body = Some(Body::Text(HTML_ERROR_RESPONSE.to_string()));
     }
 
-    resp
+    resp.into()
 }
 
 /// Creates a 307 rewrite response, redirecting the client to the ECR registry.
 pub fn create_rewrite_response<S: AsRef<str>>(
-    req: &ApiGatewayProxyEventType,
+    req: &ApiGatewayRequestType,
     host: S,
     max_age: usize,
-) -> ApiGatewayProxyResponse {
-    let mut resp = ApiGatewayProxyResponse::default();
+) -> ApiGatewayResponseType {
+    let mut resp = ApiGatewayGenericResponse::builder()
+        .req(req)
+        .status_code(307)
+        .build();
 
     let path = req
         .path()
@@ -268,5 +222,5 @@ pub fn create_rewrite_response<S: AsRef<str>>(
         HeaderValue::from_str(location.as_str()).unwrap(),
     );
 
-    resp
+    resp.into()
 }
