@@ -174,13 +174,7 @@ pub enum LogStatus {
 /// Fetch (and cache) the ECR registry host from the [ECR_REGISTRY_ENV_VAR] environment variable.
 pub fn ecr_registry_url() -> Option<&'static String> {
     REGISTRY_URL
-        .get_or_init(|| {
-            if let Ok(v) = env::var(ECR_REGISTRY_ENV_VAR) {
-                Some(v)
-            } else {
-                None
-            }
-        })
+        .get_or_init(|| env::var(ECR_REGISTRY_ENV_VAR).ok())
         .as_ref()
 }
 
@@ -212,10 +206,12 @@ pub fn should_return_json(req: &ApiGatewayProxyEventType) -> bool {
 /// Creates a 500 error response in either JSON or HTML for the circumstance in which we lack the
 /// [ECR_REGISTRY_ENV_VAR] fqdn of the ECR registry.
 pub fn create_error_response(req: &ApiGatewayProxyEventType) -> ApiGatewayProxyResponse {
-    let mut resp = ApiGatewayProxyResponse::default();
-    resp.status_code = 500;
+    let mut resp = ApiGatewayProxyResponse {
+        status_code: 500,
+        ..Default::default()
+    };
 
-    if should_return_json(&req) {
+    if should_return_json(req) {
         resp.headers
             .insert("Content-Type", HeaderValue::from_static("application/json"));
         resp.body = Some(Body::Text(JSON_ERROR_RESPONSE.to_string()))
@@ -245,7 +241,7 @@ pub fn create_rewrite_response<S: AsRef<str>>(
             if !p.starts_with("/") {
                 format!("/{}", p)
             } else {
-                format!("{}", p)
+                p.to_string()
             }
         })
         .unwrap_or("/".into());
@@ -253,7 +249,7 @@ pub fn create_rewrite_response<S: AsRef<str>>(
     let query = {
         let qs = req.query().to_query_string();
 
-        if qs.len() == 0 {
+        if qs.is_empty() {
             qs
         } else {
             format!("?{}", qs)

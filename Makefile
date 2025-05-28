@@ -2,10 +2,16 @@
 
 SHELL:=$(shell which bash)
 
-.PHONY: docker-amd64 docker-arm64
+.PHONY: pre-commit docker-amd64 docker-arm64
 
 IMAGE_PREFIX?=naftulikay/lambda-ecr-rewrite
 IMAGE_VERSION?=latest
+
+pre-commit:
+	cargo test --workspace
+	cargo fmt --check --all
+	cargo check --workspace
+	cargo clippy --workspace
 
 docker-amd64:
 	@docker buildx build --load --platform linux/amd64 --build-arg ARCH=amd64 -t $(IMAGE_PREFIX)-amd64:$(IMAGE_VERSION) .
