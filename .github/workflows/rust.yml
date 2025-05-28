@@ -180,6 +180,8 @@ jobs:
             type=semver,pattern={{version}}
 
       # cache the target directory with the build cache mount
+      # FIXME this cache is being used by both architectures and overwriting/purging the cache, causing rebuilds to be
+      #       from scratch!
       - uses: reproducible-containers/buildkit-cache-dance@v2.1.3
         with:
           cache-source: target

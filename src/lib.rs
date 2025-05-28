@@ -20,11 +20,11 @@ static REGISTRY_URL: OnceLock<Option<String>> = OnceLock::new();
 static CACHE_MAX_AGE: OnceLock<usize> = OnceLock::new();
 
 /// The name of the environment variable containing the ECR registry host FQDN.
-pub const ECR_REGISTRY_ENV_VAR: &'static str = "ECR_REGISTRY_HOST";
+pub const ECR_REGISTRY_ENV_VAR: &str = "ECR_REGISTRY_HOST";
 
 /// The name of the environment variable containing the cache max age in seconds to return with
 /// responses.
-pub const CACHE_MAX_AGE_ENV_VAR: &'static str = "CACHE_MAX_AGE";
+pub const CACHE_MAX_AGE_ENV_VAR: &str = "CACHE_MAX_AGE";
 
 /// The default max age in seconds to specify in the `Cache-Control` header.
 pub const CACHE_MAX_AGE_DEFAULT: usize = 60;
@@ -34,7 +34,7 @@ pub const MIN_LOG_INTERVAL: Duration = Duration::from_secs(60);
 
 static LAST_LOG_TIME: RwLock<Option<Instant>> = RwLock::new(None);
 
-static HTML_ERROR_RESPONSE: &'static str = r#"<!doctype html>
+static HTML_ERROR_RESPONSE: &str = r#"<!doctype html>
 <html lang="en-us">
   <head>
     <title>Error: 500 (Internal Server Error)</title>
@@ -45,7 +45,7 @@ static HTML_ERROR_RESPONSE: &'static str = r#"<!doctype html>
   </body>
 </html>"#;
 
-static JSON_ERROR_RESPONSE: &'static str = r#"{
+static JSON_ERROR_RESPONSE: &str = r#"{
   "status": {
     "code": 500,
     "msg": "Internal Server Error"
