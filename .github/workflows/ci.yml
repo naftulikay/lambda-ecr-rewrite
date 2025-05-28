@@ -14,3 +14,6 @@ on:
 jobs:
   rust:
     uses: ./.github/workflows/rust.yml
+    permissions:
+      contents: read
+      packages: write
