@@ -93,7 +93,7 @@ jobs:
       - run: lib/install-sccache
       # NOTE don't need any other targets, just need to audit the source code
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo install cargo-audit
+      - run: cargo install --force cargo-audit
       - run: cargo audit
 
   docker:
