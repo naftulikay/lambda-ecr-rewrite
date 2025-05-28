@@ -97,11 +97,7 @@ fn test_v2_create_rewrite_response_no_path() {
 
 #[test]
 fn test_v2_create_rewrite_response_qs() {
-    let qs = QueryMap::from({
-        let mut m: HashMap<String, String> = HashMap::new();
-        m.insert("size".into(), "lorge".into());
-        m
-    });
+    let qs = QueryMap::from(HashMap::from([("size".to_string(), "lorge".to_string())]));
 
     let mut req = ApiGatewayRequestType::V2(Default::default());
     *req.query_mut() = qs;
@@ -117,12 +113,10 @@ fn test_v2_create_rewrite_response_qs() {
 
 #[test]
 fn test_v2_create_rewrite_response_qs_extra() {
-    let qs = QueryMap::from({
-        let mut m: HashMap<String, String> = HashMap::new();
-        m.insert("a".into(), "b".into());
-        m.insert("c".into(), "22".into());
-        m
-    });
+    let qs = QueryMap::from(HashMap::from([
+        ("a".to_string(), "b".to_string()),
+        ("c".to_string(), "22".to_string()),
+    ]));
 
     let mut req = ApiGatewayRequestType::V2(Default::default());
     req.set_path("/twenty");
