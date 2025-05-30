@@ -147,6 +147,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -163,11 +164,22 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       # setup multi-platform
       - uses: docker/setup-qemu-action@v3
+      # configure aws creds for public ecr push
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: "arn:aws:iam::961179389914:role/automation/github/naftulikay-main-ecr-public-lambda-ecr-rewrite-push-role"
+          aws-region: us-east-1
+      # log into ecr
+      - uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
       # establish image name/labels/tags
       - id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/naftulikay/lambda-ecr-rewrite-${{ matrix.arch }}
+          images: |
+            ghcr.io/naftulikay/lambda-ecr-rewrite-${{ matrix.arch }}
+            public.ecr.aws/x4l4i3f6/lambda-ecr-rewrite-${{ matrix.arch }}
           tags: |
             type=edge,branch=main
             type=ref,event=branch
