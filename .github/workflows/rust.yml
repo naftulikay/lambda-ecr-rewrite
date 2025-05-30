@@ -180,6 +180,7 @@ jobs:
           images: |
             ghcr.io/naftulikay/lambda-ecr-rewrite-${{ matrix.arch }}
             public.ecr.aws/x4l4i3f6/lambda-ecr-rewrite-${{ matrix.arch }}
+            public.ecr.aws/naftulikay/lambda-ecr-rewrite-${{ matrix.arch }}
           tags: |
             type=edge,branch=main
             type=ref,event=branch
