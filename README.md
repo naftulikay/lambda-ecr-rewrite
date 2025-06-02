@@ -18,6 +18,25 @@ Two configuration parameters are available as environment variables:
 
 If you receive an HTTP 500, it is most likely that you did not configure `ECR_REGISTRY_HOST`.
 
+## Deployment
+
+Lambda can only pull images _from ECR_. To that end, we build and push a Docker image to public ECR for your use. Images
+are tagged with their corresponding semantic version such as `0.1.0`. Set your Lambda function's Docker image URI as:
+
+#### [x86_64/amd64](https://gallery.ecr.aws/naftulikay/lambda-ecr-rewrite-amd64)
+
+```text
+public.ecr.aws/naftulikay/lambda-ecr-rewrite-amd64:0.1.0
+```
+
+#### [ARM64](https://gallery.ecr.aws/naftulikay/lambda-ecr-rewrite-arm64)
+
+```text
+public.ecr.aws/naftulikay/lambda-ecr-rewrite-arm64:0.1.0
+```
+
+A Terraform module implementing all of this is forthcoming.
+
 ## License
 
 Licensed at your discretion under either:
