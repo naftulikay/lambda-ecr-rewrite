@@ -138,6 +138,8 @@ jobs:
           done)
 
   docker:
+    # ensure that this will not run in forks
+    if: github.repository == 'naftulikay/lambda-ecr-rewrite'
     runs-on: ubuntu-latest
     needs:
       - build
